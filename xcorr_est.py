@@ -7,6 +7,8 @@ import time
 from patsy import dmatrix
 import bisect
 import matplotlib.pyplot as plt
+from glm.glm import GLM
+from glm.families import Bernoulli
 
 
 class SpikeAnalysis:
@@ -128,15 +130,18 @@ class SpikeAnalysis:
         lam_mat=self.lambda_fun(x[:-6], X, x[-1] * psp, synapse)
 #        lam_mat=self.lambda_fun(x[:-6], X, x[-1] * np.ones([X.shape[0],1]), synapse)
 #        print(self.log_likelihood(lam_mat, Y))
-        if np.random.rand(1) < .1:
-            #            print(5 * self.sigmoid(x[-6]), 5 * self.sigmoid(x[-5]), self.sigmoid(x[-4]), self.sigmoid(x[-3]), .2 * self.sigmoid(x[-2]))
-#            plt.plot(np.sum(Y,axis=1)/np.max(lam_mat))
-            plt.plot(self.sigmoid(np.dot(X, x[:-6])))
-            plt.show()
+#        if np.random.rand(1) < .1:
+#            #            print(5 * self.sigmoid(x[-6]), 5 * self.sigmoid(x[-5]), self.sigmoid(x[-4]), self.sigmoid(x[-3]), .2 * self.sigmoid(x[-2]))
+##            plt.plot(np.sum(Y,axis=1)/np.max(lam_mat))
+#            plt.plot(self.sigmoid(np.dot(X, x[:-6])))
+#            plt.show()
 #        print(x[-6:-1])
         return self.log_likelihood(lam_mat, Y)
 
     def cost_func_jac(self, x, X, synapse, Y):
+        """
+        jacobian of the parameters
+        """
         theta_ = self.transf_theta(x[-6:-1])
         psp = self.stp_model(theta_)
         lam_mat=self.lambda_fun(x[:-6], X, x[-1] * psp, synapse)
@@ -144,9 +149,9 @@ class SpikeAnalysis:
         beta=x[:-6]
         jac_vec=np.zeros(x.shape)
         for i in range(len(jac_vec)):
-            if i < len(beta):
+            if i < len(beta): # gradients of beta params from GLM ...
                 jac_vec[i]=np.sum(np.dot(np.array([X[:, i]]), Y - lam_mat))
-            else:
+            else: #numerical calcualtion for remaining
                 dx=np.zeros(x.shape)
                 dx[i]=eps
                 jac_vec[i]=(self.cost_func(x + dx, X, synapse, Y) - self.cost_func(x - dx, X, synapse, Y)) / 2 / eps
@@ -155,12 +160,23 @@ class SpikeAnalysis:
 
     def optim_func(self, X, synapse, Y, rnd_scale):
         x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
-        res=minimize(self.cost_func, x0, method = "l-bfgs-b", args = (X, synapse, Y),
-                       options={'maxfun': 1500, 'maxiter': 1500})
+        
+        # initialization with the help of GLM
+#        bern_model = GLM(family=Bernoulli())
+#        bern_model.fit(X, np.sum(Y,axis=1))
+#        x0[:-6] = x0[:-6]+np.reshape(bern_model.coef_,(-1,1))
+
+#        res=minimize(self.cost_func, x0, method = "l-bfgs-b", args = (X, synapse, Y),
+#                       jac=self.cost_func_jac, options={'maxfun': 1500, 'maxiter': 1500})
+        res=minimize(self.cost_func, x0, method = "cg", args = (X, synapse, Y),
+                       jac=self.cost_func_jac, options={'maxfun': 1500, 'maxiter': 1500})
 #        stp_param = [ 5*self.sigmoid(x[-6]), 5*self.sigmoid(x[-5]), self.sigmoid(x[-4]), self.sigmoid(x[-3]), np.exp(x[-2]) ]
         return res
 
     def stp_model(self, theta):
+        """
+        Tsodyks-Markram model of dynamical synapse plus synaptic summation
+        """
         tauD, tauF, U, f, tauInteg = theta
         isi = self.isi_tlist(self.st1)
         exp_dep = np.exp(-isi / tauD)
@@ -179,11 +195,13 @@ class SpikeAnalysis:
             R[i + 1] = 1 - (1 - R[i] * (1 - u[i])) * exp_dep[i]
             u[i + 1] = U + (u[i] + f * (1 - u[i]) - U) * exp_fac[i]
             integ[i + 1] = psp[i] * exp_integ[i]
-
             psp[i + 1] = integ[i + 1] + R[i + 1] * u[i + 1]
         return psp
 
     def estimate_synapse(self, num_basis=5, num_rept=100, rnd_scale=1, plot_flag=0):
+        """
+        estimate synapse from cross-correlogram accounting for slow fluctuations in xcorr
+        """
         xcorr1 = np.histogram(self.cross_correlogram(), self.nbins)
         xx = np.linspace(1, num_basis - 1, self.nbins)
         bas = np.zeros(shape=(num_basis + 1, self.nbins))
@@ -211,8 +229,10 @@ class SpikeAnalysis:
             plt.show()
         return res, synapse, alpha, slow_xcorr, xcorr1[0], t_xcorr
 
-    def spike_transmission_prob(self, min_syn=.0005, max_syn=.0035, num_isilog=50):
-        # calculates efficacy
+    def spike_transmission_prob(self, min_syn=.0005, max_syn=.0035, num_isilog=50, plot_flag=0):
+        """
+        plot the spike tranmission probability from pre- and postsynaptic spikes
+        """
         isi_pre = self.isi_tlist(self.st1)
         # a log-spaced vector [lowest ISI, highest ISI] presynaptic ISI
         logisi_vec = np.logspace(np.log10(np.min(isi_pre)), np.log10(np.max(isi_pre)), base=10.0, num=num_isilog)
@@ -225,26 +245,30 @@ class SpikeAnalysis:
         for j in range(len(logisi_vec)):
             spk_prob[j] = np.mean(post_spk_presence[isi_split_num == j])
             t_split_isi[j] = np.mean(isi_pre[isi_split_num == j])
+        if plot_flag==1:
+            plt.scatter(np.log10(t_split_isi), spk_prob)
+#            plt.show()
         return spk_prob, t_split_isi
 
     def spike_trans_prob_est(self, x, X, synapse, N=40, plot_flag=0):
         """
-        plot the spike tranmission probability from estimated parameters
+        spike tranmission probability from lambda with estimated parameters
         """
         psp = self.stp_model(self.transf_theta(x[-6:-1]))
         lam = self.lambda_fun(x[:-6], X, x[-1]*psp, synapse)
         
         idx_syn = [i-100 for i in range(len(synapse)) if synapse[i]>.1*np.max(synapse)]
-        eff_n = np.sum(lam[:,idx_syn],axis=1)
+        eff_n = np.mean(lam[:,idx_syn],axis=1)
         isilog10 = np.log10(self.isi_tlist(self.st1))
         isi_vec = np.linspace(min(isilog10)-.0001,max(isilog10)+.0001,N)
         idx_isi = np.array([int(np.digitize(i,isi_vec)) for i in isilog10])
         mean_eff = np.zeros([N,1])
         for i in range(N):
-            mean_eff[i] = np.median(eff_n[idx_isi==i])
+            mean_eff[i] = np.mean(eff_n[idx_isi==i])
         if plot_flag==1:
-            plt.plot(isi_vec,mean_eff)
-            plt.show()
+            plt.scatter(isi_vec,mean_eff)
+#            plt.ylim([0,1])
+#            plt.show()
         return mean_eff, isi_vec
 
     @staticmethod
