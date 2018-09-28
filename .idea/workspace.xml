@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="7767af85-6d17-4d8a-91c2-351f30c4f7ef" name="Default Changelist" comment="" />
+    <list default="true" id="7767af85-6d17-4d8a-91c2-351f30c4f7ef" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/fc_xcorr.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/fc_xcorr.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/xcorr_est.py" beforeDir="false" afterPath="$PROJECT_DIR$/xcorr_est.py" afterDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -12,46 +18,117 @@
     <session id="165610110">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="1" />
+          <entry key="project.closed" value="6" />
+          <entry key="project.open.time.1" value="1" />
+          <entry key="project.open.time.10" value="1" />
           <entry key="project.open.time.4" value="1" />
-          <entry key="project.opened" value="1" />
+          <entry key="project.open.time.6" value="1" />
+          <entry key="project.open.time.7" value="1" />
+          <entry key="project.open.time.8" value="1" />
+          <entry key="project.opened" value="6" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
-          <entry key="py" value="1" />
+          <entry key="py" value="2" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
-          <entry key="Python" value="1" />
+          <entry key="Python" value="2" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.extensions.edit">
+        <counts>
+          <entry key="Python Console" value="173" />
+          <entry key="dummy" value="9" />
+          <entry key="py" value="380" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.types.edit">
+        <counts>
+          <entry key="PLAIN_TEXT" value="9" />
+          <entry key="Python" value="553" />
         </counts>
       </usages-collector>
     </session>
   </component>
+  <component name="FavoritesManager">
+    <favorites_list name="fc_xcorr" />
+  </component>
   <component name="FileEditorManager">
-    <leaf>
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/xcorr_est.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="15">
-              <caret line="1" column="20" lean-forward="true" selection-start-line="1" selection-start-column="20" selection-end-line="1" selection-end-column="20" />
+            <state relative-caret-position="4012">
+              <caret line="236" column="29" lean-forward="true" selection-start-line="236" selection-start-column="29" selection-end-line="236" selection-end-column="29" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/temp.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="60">
+              <caret line="4" column="8" selection-start-line="4" selection-start-column="8" selection-end-line="4" selection-end-column="8" />
             </state>
           </provider>
         </entry>
       </file>
     </leaf>
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>numpy</find>
+      <find>spike_analysis</find>
+      <find>isi_T</find>
+      <find>spike</find>
+      <find>spike_tr</find>
+      <find>SpikeAnalysis</find>
+      <find>SpikeAna</find>
+      <find>spike_transmission_prob</find>
+      <find>np.zeros</find>
+      <find>xcorr_class</find>
+      <find>import numpy as np\nfrom scipy import io\nimport scipy\.signal as sps\n\#import scipy\.interpolate as spi\nfrom scipy\.optimize import minimize\nimport matplotlib\.pyplot as plt\nfrom matplotlib\.ticker import FuncFormatter\nimport time\nfrom patsy import dmatrix\nimport bisect\n\nclass SpikeAnalysis\:\n\n    def __init__\(self\, st1\,st2\,ta\=\-\.1\,tb\=\.1\, nbins\=100\)\:\n        self\.st1 \= st1\n        self\.st2 \= st2\n        self\.ta \= ta\n        self\.tb \= tb\n        self\.nbins \= nbins\n\n    def cross_correlogram\(self\)\:\n        all\=\[\]\n        for ref in self\.st1\:\n            all\.extend\(list\(self\.st2\[\(self\.st2\&gt;ref\+self\.ta\)\&amp;\(self\.st2\&lt;ref\+self\.tb\)\]\-ref\)\)\n        return all\n\n    \@staticmethod\n    def sigmoid\(x\)\:\n        return 1 \/ \(1 \+ np\.exp\(\-x\)\)\n\n    def syn\(self\, xx\)\:\n        t_delay \= self\.tb \* self\.sigmoid\(xx\[0\]\)\n        tau \= \.01 \* self\.sigmoid\(xx\[1\]\)\n        return lambda t\: xx\[2\]\*max\(0\,t\-t_delay\)\/tau \* np\.exp\(1\-max\(0\,t\-t_delay\)\/tau\)\n\n    def func_min_xcorr\(self\, x\, bas\, y\)\:\n        alpha \= self\.syn\(x\[\-3\:\]\)\n        synapse \= \[alpha\(i\) for i in np\.linspace\(self\.ta\,self\.tb\,self\.nbins\)\]\n        lam \= np\.exp\(x\[\:\-3\]\.dot\(bas\)\+synapse\)\n        return np\.sum\(\-np\.multiply\(x\[\:\-3\]\.dot\(bas\)\+synapse\, y\)\)\+np\.sum\(lam\)\n\n    \@staticmethod\n    def func_min_glm\(x\, y_notNone\, Xvar_notNone\)\:\n        lam \= np\.exp\(x\.dot\(Xvar_notNone\)\[0\]\.ravel\(\)\)\n        return np\.sum\(\-np\.multiply\(lam\, y_notNone \)\)\+np\.sum\(lam\)\n\n    \@staticmethod\n    def func_min_glm_der\(xvar\, y_not_none\, x_covar\)\:\n        lam \= np\.exp\(xvar\.dot\(x_covar\)\[0\]\.ravel\(\)\)\n        derv_x \= np\.zeros\(len\(xvar\)\)\n        for i in range\(len\(x\)\)\:\n            derv_x\[i\] \= np\.sum\(\-np\.multiply\(y_not_none\, x_covar\[i\, \:\]\)\)\+np\.sum\(np\.multiply\(lam\, x_covar\[i\, \:\]\)\)\n        return derv_x\n\n    \@staticmethod\n    def isi_tlist\(spk\)\:\n        isi_pre \= np\.diff\(spk\.ravel\(\)\)\n        isi_pre \= np\.append\(np\.max\(isi_pre\)\,isi_pre\)\n        return isi_pre\n\n    def spike_transmission_prob\(self\, min_syn\=\.0005 \, max_syn\=\.0035 \, num_isilog\=50 \)\:\n        \# calculates efficacy\n        isi_pre \= self\.isi_tlist\(self\.st1\)\n        \# a log\-spaced vector \[lowest ISI\, highest ISI\] presynaptic ISI\n        logisi_vec \= np\.logspace\(np\.log10\(np\.min\(isi_pre\)\)\,np\.log10\(np\.max\(isi_pre\)\)\,base\=10\.0\,num\=num_isilog\)\n\#         for each presynaptic spike what was the ISI before and build a post_spk_presence \(0\/1\)\n\#         in syn_interval after that presynaptic spike\n        post_spk_presence \= np\.array\(\[1 if np\.any\( \(self\.st2\&gt;i\+min_syn\) \&amp; \(self\.st2\&lt;i\+max_syn\)\) else 0 for i in self\.st1 \]\)\n        isi_split_num \= np\.digitize\(isi_pre\,logisi_vec\)\n        spk_prob \= np\.zeros\(len\(logisi_vec\)\)\n        t_split_isi \= np\.zeros\(len\(logisi_vec\)\)\n        for j in range\(len\(logisi_vec\)\)\:\n            spk_prob\[j\] \= np\.mean\(post_spk_presence\[isi_split_num\=\=j\]\)\n            t_split_isi\[j\] \= np\.mean\(isi_pre\[isi_split_num\=\=j\]\)\n        return spk_prob\, t_split_isi\n\n    \#\%\% main code\nif __name__ \=\= \&quot;__main__\&quot;\:\n\n    \# load spike times\n\n\n    \# LGN \- CTX\n\#    mat \= io\.loadmat\(\'\/Volumes\/GoogleDrive\/My Drive\/stp in vivo\/data\/swadlow\/July13A\.mat\'\)\n\#    pre \= mat\[\'LGN\'\]\n\#    post \= mat\[\'CTX\'\]\n\n     \# AVCN\n\#    mat \= io\.loadmat\(\'\/Volumes\/GoogleDrive\/My Drive\/stp in vivo\/data\/avcn\/Tuning_G1003C82R14\.mat\'\)\n\#    pre \= mat\[\'Tuning\'\]\[\'Raw\'\]\[0\]\[0\]\[\'Continuous\'\]\[0\]\[0\]\[\'STsEPSP\'\]\[0\]\[0\]\/mat\[\'Tuning\'\]\[\'SamplingRate\'\]\[0\]\[0\]\n\#    temp_a \= mat\[\'Tuning\'\]\[\'Raw\'\]\[0\]\[0\]\[\'Continuous\'\]\[0\]\[0\]\[\'STs\'\]\[0\]\[0\]\n\#    temp_b \= mat\[\'Tuning\'\]\[\'Raw\'\]\[0\]\[0\]\[\'Continuous\'\]\[0\]\[0\]\[\'isAP\'\]\[0\]\[0\]\n\#    post \= \[val for  i\,val in enumerate\(temp_a\) if temp_b\[i\]\=\=1\]\/mat\[\'Tuning\'\]\[\'SamplingRate\'\]\[0\]\[0\]\n\n    \# VB\-Barrel\n    mat \= io\.loadmat\(\'\/Volumes\/GoogleDrive\/My Drive\/stp in vivo\/data\/data_remote\/Mar23c1\,2\,4_Herc_spikes\.mat\'\)\n    pre \= mat\[\'Tlist\'\]\[0\]\[0\] \+ \.0001\*np\.random\.random_sample\(mat\[\'Tlist\'\]\[0\]\[0\]\.shape\)\n    post \= mat\[\'Tlist\'\]\[0\]\[1\] \+ \.0001\*np\.random\.random_sample\(mat\[\'Tlist\'\]\[0\]\[1\]\.shape\)\n    t_start \= np\.floor\(np\.min\(np\.append\(pre\,post\)\)\)\n    pre \= pre \- t_start\n    post \= post \- t_start\n\n    \#\%\% xcorr calculate and estimate synapse\n    \# cross\-correlogram interval and bins\n    nbins\=200\n    ta\=\-0\.005\n    tb\=\.005\n\n    \# hyper\-parameters of the model\n    hyper_rnd_param \= 1\n    hyper_p \= 5 \# number of basis \(actual bases \# \= hyper_p\+1\)\n    hyper_rep_opt \= 100\n    hyper_syn_thr \= \.1 \# threshold for the tranmission interval of the synapse\n    hyper_len_fr_bas \= 200 \# sec\n    hyper_cpl_interval \= \.005 \# sec\n    hyper_rnd_param_glm \= 1\n\n    \# get the histogram\n    xcorr_class \= SpikeAnalysis\(pre\,post\,ta\,tb\,nbins\)\n    xcorr1 \= np\.histogram\(xcorr_class\.cross_correlogram\(\)\,nbins\)\n\n    xx \= np\.linspace\(1\,hyper_p\-1\,nbins\)\n    bas\=np\.zeros\(shape\=\(hyper_p\+1\,nbins\)\)\n\n    for i in range\(hyper_p\+1\)\:\n        bas\[i\] \= sps\.bspline\(xx\-i\,3\)\.flatten\(\)\n\#        plt\.plot\(bas\[i\]\)\n\#    plt\.show\(\)\n    \# warm\-up\n    func_val \= float\(\'inf\'\)\n    t0 \= time\.time\(\)\n    for i in range\(hyper_rep_opt\)\:\n        x0\=np\.random\.randn\(1\,np\.shape\(bas\)\[0\]\+3\)\*hyper_rnd_param\n        res_temp \= minimize\(xcorr_class\.func_min_xcorr\, x0\, method\=\&quot;l\-bfgs\-b\&quot; \, args\=\(bas\, xcorr1\[0\]\)\,\n                            options\=\{\'disp\'\: None\, \'maxcor\'\: 10\, \'ftol\'\: 2\.220446049250313e\-09\, \'gtol\'\: 1e\-05\,\n                                     \'eps\'\: 1e\-08\, \'maxfun\'\: 150\, \'maxiter\'\: 150\, \'iprint\'\: \-1\,\n                                     \'maxls\'\: 20\}\)\n        if res_temp\.fun \&lt; func_val\:\n            func_val \= res_temp\.fun\n            res_warmup \= res_temp\n    t1 \= time\.time\(\)\n    print\(\'avg time for each loop \= \'\, \(t1\-t0\)\/hyper_rep_opt \)\n\n    res \= minimize\(xcorr_class\.func_min_xcorr\, res_warmup\.x\, method\=\&quot;l\-bfgs\-b\&quot; \, args\=\(bas\, xcorr1\[0\]\)\,\n                            options\=\{\'disp\'\: None\, \'maxcor\'\: 10\, \'ftol\'\: 2\.220446049250313e\-09\, \'gtol\'\: 1e\-05\,\n                                     \'eps\'\: 1e\-08\, \'maxfun\'\: 15000\, \'maxiter\'\: 15000\, \'iprint\'\: \-1\,\n                                     \'maxls\'\: 20\}\)\n\n    \# plot xcorr and fits\n    t_xcorr \= np\.linspace\(ta\,tb\,nbins\)\n    plt\.bar\(t_xcorr\, xcorr1\[0\]\, width\=t_xcorr\[1\]\-t_xcorr\[0\]\)\n    plt\.plot\(t_xcorr\, np\.exp\(res\.x\[\:\-3\]\.dot\(bas\)\)\,color\=\'r\'\,linewidth\=3\) \# the smooth CommInp\n    alpha \= xcorr_class\.syn\(res\.x\[\-3\:\]\)\n    synapse \= \[alpha\(i\) for i in t_xcorr\] \# the synapse\n    plt\.plot\(t_xcorr\, np\.exp\(res\.x\[\:\-3\]\.dot\(bas\)\+synapse\)\,color\=\'k\'\,linewidth\=3\)\n    plt\.show\(\)\n\n    \# plot ISI distribution\n    isi_pre \= np\.diff\(pre\.ravel\(\)\)\n    isi_pre \= np\.append\(np\.max\(isi_pre\)\,isi_pre\)\n\n    plt\.hist\(np\.log\(isi_pre\)\,bins\=100\)\n    plt\.show\(\)\n\n    \#\%\% calculate efficacy\n    \# a log\-spaced vector \[lowest ISI\, highest ISI\] presynaptic ISI\n    t_syn_interval \= t_xcorr\[synapse\&gt;hyper_syn_thr\*np\.max\(synapse\)\]\n    min_syn \= np\.min\(t_syn_interval\)\n    max_syn \= np\.max\(t_syn_interval\)\n\n    spk_prob\, t_split_isi \= xcorr_class\.spike_transmission_prob\( min_syn \, max_syn \, num_isilog\=50 \)\n\n    fig\, ax \= plt\.subplots\(\)\n    ax\.set_xlim\(\[0\.0001\, 10\]\)\n    ax\.set_xscale\(\'log\'\)\n    for axis in \[ax\.xaxis\]\:\n        formatter \= FuncFormatter\(lambda y\, _\: \'\{\:\.16g\}\'\.format\(y\)\)\n        axis\.set_major_formatter\(formatter\)\n\n    plt\.scatter\(t_split_isi\,spk_prob\)\n    plt\.title\(\&quot;Spike Transmission Probability\&quot;\)\n    plt\.xlabel\(\&quot;Presynaptic ISI\&quot;\)\n    plt\.ylabel\(\&quot;Postsynaptic Spiking Prob\.\&quot;\)\n    plt\.show\(\)\n\n    \# \%\%\n    \# no plasticity GLM\n\n    \# get  time_post_before_pre  \- time_pre\n    max_post_isi \= np\.max\(np\.diff\(post\.ravel\(\)\)\)\n    t1\=time\.time\(\)\n    t_post_pre \= \[post\[bisect\.bisect_left\(post\,i\)\-1\]\-i for i in pre\]\n    print\(\'time to calculate t_post_pre \: \~\'\,np\.ceil\(time\.time\(\)\-t1\)\, \' secs\'\)\n\n    plt\.hist\(np\.log10\(np\.negative\(t_post_pre\)\)\,bins\=100\)\n    plt\.show\(\)\n    \#    calculate w from synapse interpoation\n    t_post_cpl \= \[post\[bisect\.bisect_left\(post\,i\)\]\-i for i in pre \\\n        if bisect\.bisect_left\(post\,i\)\&lt;len\(post\)\]\n    y \= \[1 if \(\(i\&gt;min_syn\) \&amp; \(i\&lt;max_syn\)\) else 0 for i in t_post_cpl\]\n    \# len\(y\)\n    t_post_cpl \= \[i if i\&lt;hyper_cpl_interval else None for i in t_post_cpl\]\n    w \= \[alpha\(i\) if i is not None else None for i in t_post_cpl \]\n\n    \# history covariates\n    x \= np\.negative\(t_post_pre\)\n    knots \= np\.power\(10\,np\.linspace\(np\.log10\(min\(x\)\+\.0001\)\,np\.log10\(max\(x\)\-\.0001\)\,8\)\)\n    X_h \= dmatrix\(\&quot;bs\(x\, degree\=3\, knots \= knots\, include_intercept\=False\) \- 1\&quot;\, \{\&quot;x\&quot;\: x\}\)\n\n    \# baseline firing rate covariates\n    knots_fr \= np\.linspace\(np\.min\(pre\)\+1 \, np\.max\(pre\) \, \\\n                           int\(\(np\.floor\(max\(pre\)\)\)\/hyper_len_fr_bas\)\)\n    X_fr \= dmatrix\(\&quot;bs\(x\, degree\=3\, knots \= knots_fr\, include_intercept\=False\) \- 1\&quot;\, \\\n                   \{\&quot;x\&quot;\: pre\}\)\n\n    Xvar \= np\.hstack\(\(np\.ones\(\[len\(w\)\,1\]\)\,np\.array\(X_h\)\,np\.array\(X_fr\)\,np\.array\(\[w\]\)\.T\)\)\n\n    Xvar_notNone \= Xvar\[\[i for i in range\(len\(Xvar\[\:\,\-1\]\)\) if Xvar\[\:\,\-1\]\[i\] is not None\]\,\:\]\.T\n    \# Xvar_notNone\.shape\n\n\n    y_notNone \= \[y\[i\] for i in range\(len\(y\)\) if w\[i\] is not None\]\n\n    \# len\(y_notNone\)\n\n    \# np\.exp\(np\.array\(\[1\,2\,3\]\)\.shape\)\n\n    \# def func_min_glm\(self\,x\,y_notNone\,Xvar_notNone\)\:\n    \#     lam \= np\.exp\(x\.dot\(Xvar_notNone\)\[0\]\)\n    \#     return np\.sum\(\-np\.multiply\( lam \, y_notNone \)\)\+np\.sum\(lam\)\n\n    \# lam\n\n    \# hyper_rnd_param_glm \= 1\n    x0_glm \= np\.random\.randn\(1\,np\.shape\(Xvar_notNone\)\[0\]\)\*hyper_rnd_param_glm\n    \# x\.dot\(Xvar_notNone\)\[0\]\.shape\n    res_glm \= minimize\(xcorr_class\.func_min_glm\, x0_glm \, method\=\&quot;l\-bfgs\-b\&quot; \, jac \= xcorr_class\.func_min_glm_der \, args\=\(y_notNone\, Xvar_notNone\)\,\n                                options\=\{\'disp\'\: None\, \'maxcor\'\: 10\, \'ftol\'\: 1e\-09\, \'gtol\'\: 1e\-05\,\n                                         \'eps\'\: 1e\-08\, \'maxfun\'\: 15000\, \'maxiter\'\: 15000\, \'iprint\'\: \-1\,\n                                         \'maxls\'\: 20\}\)\n\n    print\(res_glm\.x\)</find>
+    </findStrings>
+    <replaceStrings>
+      <replace>SpikeAnalysis</replace>
+    </replaceStrings>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="IdeDocumentHistory">
+    <option name="CHANGED_PATHS">
+      <list>
+        <option value="$PROJECT_DIR$/temp.py" />
+        <option value="$PROJECT_DIR$/xcorr_est.py" />
+      </list>
+    </option>
+  </component>
   <component name="ProjectFrameBounds">
     <option name="y" value="23" />
     <option name="width" value="1280" />
     <option name="height" value="777" />
   </component>
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
     <navigator proportions="" version="1">
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -63,10 +140,10 @@
           <select />
         </subPane>
       </pane>
-      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
+    <property name="ToolWindowPython Console.ShowToolbar" value="false" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
@@ -89,6 +166,7 @@
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="DISPLAY" value="True" />
       </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -123,36 +201,60 @@
     </task>
     <servers />
   </component>
+  <component name="TodoView" selected-index="1">
+    <todo-panel id="selected-file">
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+    <todo-panel id="all">
+      <are-packages-shown value="true" />
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+  </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="23" width="1280" height="777" extended-state="6" />
+    <frame x="0" y="23" width="1280" height="777" extended-state="0" />
     <layout>
-      <window_info id="Favorites" side_tool="true" />
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.2494043" />
-      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
-      <window_info anchor="bottom" id="Version Control" show_stripe_button="false" />
-      <window_info active="true" anchor="bottom" id="Python Console" visible="true" weight="0.329927" />
-      <window_info anchor="bottom" id="Terminal" weight="0.329927" />
-      <window_info anchor="bottom" id="Event Log" side_tool="true" />
+      <window_info content_ui="combo" id="Project" order="0" weight="0.24878837" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.24878837" />
+      <window_info id="Favorites" order="2" side_tool="true" weight="0.32956383" />
       <window_info anchor="bottom" id="Message" order="0" />
-      <window_info anchor="bottom" id="Find" order="1" />
-      <window_info anchor="bottom" id="Run" order="2" weight="0.329927" />
-      <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
-      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
-      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
-      <window_info anchor="bottom" id="TODO" order="6" />
+      <window_info anchor="bottom" id="Find" order="1" weight="0.329927" />
+      <window_info anchor="bottom" id="Debug" order="2" weight="0.4" />
+      <window_info anchor="bottom" id="Cvs" order="3" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="4" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="5" show_stripe_button="false" sideWeight="0.4980143" weight="0.329927" />
+      <window_info anchor="bottom" id="Version Control" order="6" show_stripe_button="false" weight="0.329927" />
+      <window_info anchor="bottom" id="Event Log" order="7" sideWeight="0.50357425" side_tool="true" weight="0.30364963" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+      <window_info anchor="right" x="0" y="45" width="1280" height="755" id="Run" order="3" sideWeight="0.50039715" weight="0.4184168" />
+      <window_info anchor="right" x="10" y="323" width="1259" height="176" id="Terminal" order="4" sideWeight="0.49960285" weight="0.3029079" />
+      <window_info active="true" anchor="right" x="0" y="45" width="1280" height="755" id="Python Console" order="5" sideWeight="0.49483716" visible="true" weight="0.3739903" />
     </layout>
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
   </component>
+  <component name="VcsManagerConfiguration">
+    <ignored-roots>
+      <path value="$PROJECT_DIR$" />
+    </ignored-roots>
+  </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/xcorr_est.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="15">
-          <caret line="1" column="20" lean-forward="true" selection-start-line="1" selection-start-column="20" selection-end-line="1" selection-end-column="20" />
+        <state relative-caret-position="4012">
+          <caret line="236" column="29" lean-forward="true" selection-start-line="236" selection-start-column="29" selection-end-line="236" selection-end-column="29" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/temp.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="60">
+          <caret line="4" column="8" selection-start-line="4" selection-start-column="8" selection-end-line="4" selection-end-column="8" />
         </state>
       </provider>
     </entry>
