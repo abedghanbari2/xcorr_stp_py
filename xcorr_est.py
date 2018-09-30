@@ -7,9 +7,9 @@ import time
 from patsy import dmatrix
 import bisect
 import matplotlib.pyplot as plt
-from glm.glm import GLM
-from glm.families import Bernoulli
-
+#from glm.glm import GLM
+#from glm.families import Bernoulli
+import cython_loop
 
 class SpikeAnalysis:
 
@@ -19,6 +19,7 @@ class SpikeAnalysis:
         self.ta = ta
         self.tb = tb
         self.nbins = nbins
+        self.thr = .1
 
     def cross_correlogram(self):
         all = []
@@ -159,45 +160,33 @@ class SpikeAnalysis:
         return jac_vec
 
     def optim_func(self, X, synapse, Y, rnd_scale):
-        x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
-        
+#        x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
+#        
         # initialization with the help of GLM
 #        bern_model = GLM(family=Bernoulli())
 #        bern_model.fit(X, np.sum(Y,axis=1))
 #        x0[:-6] = x0[:-6]+np.reshape(bern_model.coef_,(-1,1))
 
-#        res=minimize(self.cost_func, x0, method = "l-bfgs-b", args = (X, synapse, Y),
-#                       jac=self.cost_func_jac, options={'maxfun': 1500, 'maxiter': 1500})
-        res=minimize(self.cost_func, x0, method = "cg", args = (X, synapse, Y),
+        # warm start 
+        func_val = float('inf')
+        for i in range(50):
+            x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
+            res=minimize(self.cost_func, x0, method = "l-bfgs-b", args = (X, synapse, Y),
+                       jac=self.cost_func_jac, options={'maxfun': 15, 'maxiter': 15})
+            if res.fun < func_val:
+                func_val = res.fun
+                res_warmup = res
+        res=minimize(self.cost_func, res_warmup.x, method = "l-bfgs-b", args = (X, synapse, Y),
                        jac=self.cost_func_jac, options={'maxfun': 1500, 'maxiter': 1500})
 #        stp_param = [ 5*self.sigmoid(x[-6]), 5*self.sigmoid(x[-5]), self.sigmoid(x[-4]), self.sigmoid(x[-3]), np.exp(x[-2]) ]
         return res
 
-    def stp_model(self, theta):
-        """
-        Tsodyks-Markram model of dynamical synapse plus synaptic summation
-        """
-        tauD, tauF, U, f, tauInteg = theta
+        
+    def stp_model(self,theta):
         isi = self.isi_tlist(self.st1)
-        exp_dep = np.exp(-isi / tauD)
-        exp_fac = np.exp(-isi / tauF)
-        exp_integ = np.exp(-isi / tauInteg)
-
-        R = np.zeros([len(isi), 1])
-        u = np.zeros([len(isi), 1])
-        integ = np.zeros([len(isi), 1])
-        psp = np.zeros([len(isi), 1])
-        R[0] = 1
-        u[0] = U
-        psp[0] = U
-        L = len(isi) - 1
-        for i in range(L):
-            R[i + 1] = 1 - (1 - R[i] * (1 - u[i])) * exp_dep[i]
-            u[i + 1] = U + (u[i] + f * (1 - u[i]) - U) * exp_fac[i]
-            integ[i + 1] = psp[i] * exp_integ[i]
-            psp[i + 1] = integ[i + 1] + R[i + 1] * u[i + 1]
+        psp = cython_loop.stp_model_cython(isi, np.array(theta))
         return psp
-
+    
     def estimate_synapse(self, num_basis=5, num_rept=100, rnd_scale=1, plot_flag=0):
         """
         estimate synapse from cross-correlogram accounting for slow fluctuations in xcorr
@@ -256,9 +245,8 @@ class SpikeAnalysis:
         """
         psp = self.stp_model(self.transf_theta(x[-6:-1]))
         lam = self.lambda_fun(x[:-6], X, x[-1]*psp, synapse)
-        
-        idx_syn = [i-100 for i in range(len(synapse)) if synapse[i]>.1*np.max(synapse)]
-        eff_n = np.mean(lam[:,idx_syn],axis=1)
+        idx_syn = [i-100 for i in range(len(synapse)) if synapse[i] > self.thr * np.max(synapse)]
+        eff_n = np.mean(lam[:, idx_syn], axis=1)
         isilog10 = np.log10(self.isi_tlist(self.st1))
         isi_vec = np.linspace(min(isilog10)-.0001,max(isilog10)+.0001,N)
         idx_isi = np.array([int(np.digitize(i,isi_vec)) for i in isilog10])
