@@ -9,7 +9,7 @@ ta=-0.005
 tb=0.005
 
 # get the histogram
-pre, post = SpikeAnalysis.load_data(1)
+pre, post = SpikeAnalysis.load_data(3)
 pre=pre[:8000,0]
 post = post[post<np.max(pre)]
 xcorr_class = SpikeAnalysis(pre,post,ta,tb,nbins)

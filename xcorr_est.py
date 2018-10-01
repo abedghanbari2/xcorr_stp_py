@@ -93,16 +93,15 @@ class SpikeAnalysis:
         knots_fr = np.linspace(np.min(self.st1) + 1, np.max(self.st1), int((np.floor(max(self.st1))) / len_fr_bas))
         X_fr = dmatrix("bs(x, degree=3, knots = knots_fr, include_intercept=False) - 1", {"x": self.st1})
         X_fr_truncated = X_fr[: , : -1]
-        Xvar = np.hstack((np.ones([len(self.st1), 1]), np.array(X_fr_truncated), np.array(X_h_truncated)))
+        Xvar = np.hstack(np.array(X_fr_truncated), np.array(X_h_truncated))
+#        Xvar = np.hstack((np.ones([len(self.st1), 1]), np.array(X_fr_truncated), np.array(X_h_truncated)))
 #        X_notNone = Xvar[[i for i in range(len(Xvar[:, -1])) if Xvar[:, -1][i] is not None], :].astype('float')
         return Xvar
 
-    def lambda_fun(self, beta, X, psp_scaled, synapse):
+    def lambda_fun(self, beta, X, psp_scaled, alph_mat):
         Xmat = np.matlib.repmat(np.array([np.dot(X, beta)]).T, 1, 100)
-        alph_mat = np.matlib.repmat(synapse[100:], X.shape[0], 1)
-        for i in range(len(psp_scaled)):
-            alph_mat[i, : ] = psp_scaled[i] * alph_mat[i, : ]
-        return self.sigmoid(Xmat + alph_mat)
+        dyn_stp_mat = np.multiply(np.matlib.repmat(psp_scaled, 100, 1).T, alph_mat)
+        return self.sigmoid(Xmat + dyn_stp_mat)
 
     @staticmethod
     def log_likelihood(lam_mat, Y):
@@ -113,76 +112,107 @@ class SpikeAnalysis:
         transforms the parmaters of the stp model so we don;t have to use 
         constrained optimization
         """
-#        x_ = [5 * self.sigmoid(x[-5]), 
-#              5 * self.sigmoid(x[-4]), 
-#              self.sigmoid(x[-3]), 
-#              self.sigmoid(x[-2]),
-#              .2 * self.sigmoid(x[-1]) ]
-        x_ = [np.exp(x[-5]), 
-              np.exp(x[-4]), 
+        x_ = [5 * self.sigmoid(x[-5]), 
+              5 * self.sigmoid(x[-4]), 
               self.sigmoid(x[-3]), 
               self.sigmoid(x[-2]),
-              np.exp(x[-1]) ]
+              .2 * self.sigmoid(x[-1]) ]
+#        x_ = [np.exp(x[-5]), 
+#              np.exp(x[-4]), 
+#              self.sigmoid(x[-3]), 
+#              self.sigmoid(x[-2]),
+#              np.exp(x[-1]) ]
         return x_
     
-    def cost_func(self, x, X, synapse, Y):
+    def alpha_mat(self,synapse):
+        return np.matlib.repmat(synapse[100:], self.st1.shape[0], 1)
+    
+    def cost_func(self, x, X, alph_mat, Y):
         theta_ = self.transf_theta(x[-6:-1])
         psp = self.stp_model(theta_)
-        lam_mat=self.lambda_fun(x[:-6], X, x[-1] * psp, synapse)
+        lam_mat=self.lambda_fun(x[:-6], X, x[-1] * psp, alph_mat)
 #        lam_mat=self.lambda_fun(x[:-6], X, x[-1] * np.ones([X.shape[0],1]), synapse)
 #        print(self.log_likelihood(lam_mat, Y))
 #        if np.random.rand(1) < .1:
 #            #            print(5 * self.sigmoid(x[-6]), 5 * self.sigmoid(x[-5]), self.sigmoid(x[-4]), self.sigmoid(x[-3]), .2 * self.sigmoid(x[-2]))
 ##            plt.plot(np.sum(Y,axis=1)/np.max(lam_mat))
-#            plt.plot(self.sigmoid(np.dot(X, x[:-6])))
-#            plt.show()
-#        print(x[-6:-1])
+        N=1000
+        plt.scatter(self.st1[:N],np.dot(X[:N,1:], x[1:-6]))
+        print(np.around(self.transf_theta(x[-6:-1]),2))
+        plt.scatter(self.st1[:N],x[-1]*np.multiply(psp[:N],np.sum(np.multiply(alph_mat,Y),axis=1)[:N]))
+        plt.show()
+        
+#        synapse = np.zeros([1,200])
+#        synapse[100:]=alph_mat[0,:]
+#        print(synapse)
+#        mean_eff, isi_vec = self.spike_trans_prob_est(x, X, synapse, N=100, plot_flag=1)
+#        t_xcorr = np.linspace(self.ta, self.tb, self.nbins)
+#        t_syn_interval = t_xcorr[synapse>.1*np.max(synapse)]
+#        spk_prob, t_split_isi = self.spike_transmission_prob(np.min(t_syn_interval), np.max(t_syn_interval), num_isilog=50, plot_flag=1)
+#
+#        plt.show()
+#        print(np.sum(x**2))
+#        print(self.log_likelihood(lam_mat, Y))
+#        return self.log_likelihood(lam_mat, Y)+1*np.sum(x**2)
         return self.log_likelihood(lam_mat, Y)
 
-    def cost_func_jac(self, x, X, synapse, Y):
+    def cost_func_jac(self, x, X, alph_mat, Y):
         """
         jacobian of the parameters
         """
         theta_ = self.transf_theta(x[-6:-1])
         psp = self.stp_model(theta_)
-        lam_mat=self.lambda_fun(x[:-6], X, x[-1] * psp, synapse)
+        lam_mat=self.lambda_fun(x[:-6], X, x[-1] * psp, alph_mat)
         eps=.00001
         beta=x[:-6]
         jac_vec=np.zeros(x.shape)
         for i in range(len(jac_vec)):
-            if i < len(beta): # gradients of beta params from GLM ...
+            if i < 0: # gradients of beta params from GLM ...
                 jac_vec[i]=np.sum(np.dot(np.array([X[:, i]]), Y - lam_mat))
             else: #numerical calcualtion for remaining
                 dx=np.zeros(x.shape)
                 dx[i]=eps
-                jac_vec[i]=(self.cost_func(x + dx, X, synapse, Y) - self.cost_func(x - dx, X, synapse, Y)) / 2 / eps
+                jac_vec[i]=(self.cost_func(x + dx, X, alph_mat, Y) - self.cost_func(x - dx, X, alph_mat, Y)) / 2 / eps
 
+#        return jac_vec + 1*2*x
         return jac_vec
 
     def optim_func(self, X, synapse, Y, rnd_scale):
-#        x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
-#        
+        """
+        optimizing the cost function
+            - initialization with standard glm
+            - warm start from random restart
+        """
+        x0 = np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
+        method_opt = "cg"
+        
         # initialization with the help of GLM
 #        bern_model = GLM(family=Bernoulli())
 #        bern_model.fit(X, np.sum(Y,axis=1))
 #        x0[:-6] = x0[:-6]+np.reshape(bern_model.coef_,(-1,1))
 
         # warm start 
-        func_val = float('inf')
-        for i in range(50):
-            x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
-            res=minimize(self.cost_func, x0, method = "l-bfgs-b", args = (X, synapse, Y),
-                       jac=self.cost_func_jac, options={'maxfun': 15, 'maxiter': 15})
-            if res.fun < func_val:
-                func_val = res.fun
-                res_warmup = res
-        res=minimize(self.cost_func, res_warmup.x, method = "l-bfgs-b", args = (X, synapse, Y),
-                       jac=self.cost_func_jac, options={'maxfun': 1500, 'maxiter': 1500})
+#        func_val = float('inf')
+#        for i in range(50):
+#            x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
+#            res=minimize(self.cost_func, x0, method = "l-bfgs-b", args = (X, synapse, Y),
+#                       jac=self.cost_func_jac, options={'maxfun': 15, 'maxiter': 15})
+#            if res.fun < func_val:
+#                func_val = res.fun
+#                res_warmup = res
+#        x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
+#        res=minimize(self.cost_func, x0, method = method_opt, args = (X, self.alpha_mat(synapse), Y), 
+#                     options={'maxfun': 15000, 'maxiter': 15000})
+        res=minimize(self.cost_func, x0, method = method_opt, args = (X, self.alpha_mat(synapse), Y), 
+                     jac=self.cost_func_jac, options={'maxfun': 15000, 'maxiter': 15000})
 #        stp_param = [ 5*self.sigmoid(x[-6]), 5*self.sigmoid(x[-5]), self.sigmoid(x[-4]), self.sigmoid(x[-3]), np.exp(x[-2]) ]
         return res
 
         
     def stp_model(self,theta):
+        """
+        cython implementation of the Tsodyks and Markram model of a dynamical synapse
+        """
         isi = self.isi_tlist(self.st1)
         psp = cython_loop.stp_model_cython(isi, np.array(theta))
         return psp
@@ -244,7 +274,7 @@ class SpikeAnalysis:
         spike tranmission probability from lambda with estimated parameters
         """
         psp = self.stp_model(self.transf_theta(x[-6:-1]))
-        lam = self.lambda_fun(x[:-6], X, x[-1]*psp, synapse)
+        lam = self.lambda_fun(x[:-6], X, x[-1]*psp, self.alpha_mat(synapse))
         idx_syn = [i-100 for i in range(len(synapse)) if synapse[i] > self.thr * np.max(synapse)]
         eff_n = np.mean(lam[:, idx_syn], axis=1)
         isilog10 = np.log10(self.isi_tlist(self.st1))
