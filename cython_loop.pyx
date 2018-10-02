@@ -11,7 +11,7 @@ from libc.math cimport exp
 cpdef stp_model_cython(double[:] isi, double[:] theta):
     cdef:
         int L = isi.shape[0], i, j
-        double[:] psp = np.zeros(L, dtype=np.float64)
+        double[:] psp = np.zeros(L, dtype=np.float)
         double tauD = theta[0]
         double tauF = theta[1]
         double U = theta[2]

@@ -1,14 +1,16 @@
 import numpy as np
 from scipy import io
 import scipy.signal as sps
+import scipy.special as spc
+
 # import scipy.interpolate as spi
 from scipy.optimize import minimize
 import time
 from patsy import dmatrix
 import bisect
 import matplotlib.pyplot as plt
-#from glm.glm import GLM
-#from glm.families import Bernoulli
+from glm.glm import GLM
+from glm.families import Bernoulli
 import cython_loop
 
 class SpikeAnalysis:
@@ -29,8 +31,10 @@ class SpikeAnalysis:
 
     @staticmethod
     def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
-
+#        return 1 / (1 + np.exp(-x))
+        return spc.expit(x)
+#        return (1.0+np.tanh(x/2.0))/2.0
+    
     @staticmethod
     def logit(x):
         return np.log(x / (1 - x))
@@ -46,177 +50,6 @@ class SpikeAnalysis:
         lam = np.exp(x[:-3].dot(bas) + synapse)
         return np.sum(-np.multiply(x[:-3].dot(bas) + synapse, y)) + np.sum(lam)
 
-    @staticmethod
-    def isi_tlist(spk):
-        isi_pre = np.diff(spk.ravel())
-        isi_pre = np.append(np.max(isi_pre), isi_pre)
-        return isi_pre
-
-    def time_post_pre(self):
-        return [self.st2[bisect.bisect_left(self.st2, i) - 1] - i for i in self.st1]
-
-    def time_pre_cpl(self):
-        len_st2 = len(self.st2)
-        return np.array([self.st2[bisect.bisect_left(self.st2, i)] - i if bisect.bisect_left(self.st2, i) < len_st2 else None for i in self.st1])
-
-    def y_mat(self, t_pre_cpl, num_bins=100):
-        """
-        Creates a matrix each row representing a presynaptic spike
-        0/1 values in each column shows presence of postsynaptic spike
-
-        Input:
-            t_pre_cpl : time difference between each presynaptic spike and following postsynaptic spike
-            num_bins : number of bins for Y matrix // should be the same as columns in X
-
-        """
-        Ycpl_idx = np.array([np.digitize(i, np.linspace(0, self.tb, num_bins + 1)) for i in t_pre_cpl])
-        idx = np.hstack((np.array([list(range(0, len(self.st1)))]).T, np.reshape(Ycpl_idx,(-1,1))))
-        Ycpl = np.zeros([len(self.st1), num_bins + 1])
-        for i in range(len(self.st1)):
-            Ycpl[idx[i, 0], idx[i, 1] - 1] = 1 #why do i have -1 here?
-        return Ycpl[: , :-1]
-
-    def make_X(self, syn_param, max_history_filter=.01, num_history_splines=10, len_fr_bas=200, plot_h_flag=0):
-        t_post_pre = self.time_post_pre()
-        x = np.negative(t_post_pre)
-        x[x < 0] = np.median(x[x > 0]) # just a check but be careful 
-        knots_history = np.linspace(min(x) + .0001, max_history_filter - .0001, num_history_splines)
-        X_h = dmatrix("bs(x, degree=3, knots = knots_history, include_intercept=False) - 1", {"x": x})
-        if plot_h_flag == 1:
-            for i in range(X_h.shape[1] - 4):
-                plt.scatter(x, X_h[:, i])
-            plt.xlabel('pre spike time - previous postsynaptic spike')
-            plt.xlim([0, max_history_filter])
-            plt.show()
-        X_h_truncated = X_h[: , : num_history_splines - 4] # don't need them
-        # baseline firing rate covariates
-        knots_fr = np.linspace(np.min(self.st1) + 1, np.max(self.st1), int((np.floor(max(self.st1))) / len_fr_bas))
-        X_fr = dmatrix("bs(x, degree=3, knots = knots_fr, include_intercept=False) - 1", {"x": self.st1})
-        X_fr_truncated = X_fr[: , : -1]
-        Xvar = np.hstack(np.array(X_fr_truncated), np.array(X_h_truncated))
-#        Xvar = np.hstack((np.ones([len(self.st1), 1]), np.array(X_fr_truncated), np.array(X_h_truncated)))
-#        X_notNone = Xvar[[i for i in range(len(Xvar[:, -1])) if Xvar[:, -1][i] is not None], :].astype('float')
-        return Xvar
-
-    def lambda_fun(self, beta, X, psp_scaled, alph_mat):
-        Xmat = np.matlib.repmat(np.array([np.dot(X, beta)]).T, 1, 100)
-        dyn_stp_mat = np.multiply(np.matlib.repmat(psp_scaled, 100, 1).T, alph_mat)
-        return self.sigmoid(Xmat + dyn_stp_mat)
-
-    @staticmethod
-    def log_likelihood(lam_mat, Y):
-        return -np.sum(np.multiply(lam_mat, Y) + np.multiply(1 - lam_mat, 1 - Y))
-
-    def transf_theta(self,x):
-        """
-        transforms the parmaters of the stp model so we don;t have to use 
-        constrained optimization
-        """
-        x_ = [5 * self.sigmoid(x[-5]), 
-              5 * self.sigmoid(x[-4]), 
-              self.sigmoid(x[-3]), 
-              self.sigmoid(x[-2]),
-              .2 * self.sigmoid(x[-1]) ]
-#        x_ = [np.exp(x[-5]), 
-#              np.exp(x[-4]), 
-#              self.sigmoid(x[-3]), 
-#              self.sigmoid(x[-2]),
-#              np.exp(x[-1]) ]
-        return x_
-    
-    def alpha_mat(self,synapse):
-        return np.matlib.repmat(synapse[100:], self.st1.shape[0], 1)
-    
-    def cost_func(self, x, X, alph_mat, Y):
-        theta_ = self.transf_theta(x[-6:-1])
-        psp = self.stp_model(theta_)
-        lam_mat=self.lambda_fun(x[:-6], X, x[-1] * psp, alph_mat)
-#        lam_mat=self.lambda_fun(x[:-6], X, x[-1] * np.ones([X.shape[0],1]), synapse)
-#        print(self.log_likelihood(lam_mat, Y))
-#        if np.random.rand(1) < .1:
-#            #            print(5 * self.sigmoid(x[-6]), 5 * self.sigmoid(x[-5]), self.sigmoid(x[-4]), self.sigmoid(x[-3]), .2 * self.sigmoid(x[-2]))
-##            plt.plot(np.sum(Y,axis=1)/np.max(lam_mat))
-        N=1000
-        plt.scatter(self.st1[:N],np.dot(X[:N,1:], x[1:-6]))
-        print(np.around(self.transf_theta(x[-6:-1]),2))
-        plt.scatter(self.st1[:N],x[-1]*np.multiply(psp[:N],np.sum(np.multiply(alph_mat,Y),axis=1)[:N]))
-        plt.show()
-        
-#        synapse = np.zeros([1,200])
-#        synapse[100:]=alph_mat[0,:]
-#        print(synapse)
-#        mean_eff, isi_vec = self.spike_trans_prob_est(x, X, synapse, N=100, plot_flag=1)
-#        t_xcorr = np.linspace(self.ta, self.tb, self.nbins)
-#        t_syn_interval = t_xcorr[synapse>.1*np.max(synapse)]
-#        spk_prob, t_split_isi = self.spike_transmission_prob(np.min(t_syn_interval), np.max(t_syn_interval), num_isilog=50, plot_flag=1)
-#
-#        plt.show()
-#        print(np.sum(x**2))
-#        print(self.log_likelihood(lam_mat, Y))
-#        return self.log_likelihood(lam_mat, Y)+1*np.sum(x**2)
-        return self.log_likelihood(lam_mat, Y)
-
-    def cost_func_jac(self, x, X, alph_mat, Y):
-        """
-        jacobian of the parameters
-        """
-        theta_ = self.transf_theta(x[-6:-1])
-        psp = self.stp_model(theta_)
-        lam_mat=self.lambda_fun(x[:-6], X, x[-1] * psp, alph_mat)
-        eps=.00001
-        beta=x[:-6]
-        jac_vec=np.zeros(x.shape)
-        for i in range(len(jac_vec)):
-            if i < 0: # gradients of beta params from GLM ...
-                jac_vec[i]=np.sum(np.dot(np.array([X[:, i]]), Y - lam_mat))
-            else: #numerical calcualtion for remaining
-                dx=np.zeros(x.shape)
-                dx[i]=eps
-                jac_vec[i]=(self.cost_func(x + dx, X, alph_mat, Y) - self.cost_func(x - dx, X, alph_mat, Y)) / 2 / eps
-
-#        return jac_vec + 1*2*x
-        return jac_vec
-
-    def optim_func(self, X, synapse, Y, rnd_scale):
-        """
-        optimizing the cost function
-            - initialization with standard glm
-            - warm start from random restart
-        """
-        x0 = np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
-        method_opt = "cg"
-        
-        # initialization with the help of GLM
-#        bern_model = GLM(family=Bernoulli())
-#        bern_model.fit(X, np.sum(Y,axis=1))
-#        x0[:-6] = x0[:-6]+np.reshape(bern_model.coef_,(-1,1))
-
-        # warm start 
-#        func_val = float('inf')
-#        for i in range(50):
-#            x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
-#            res=minimize(self.cost_func, x0, method = "l-bfgs-b", args = (X, synapse, Y),
-#                       jac=self.cost_func_jac, options={'maxfun': 15, 'maxiter': 15})
-#            if res.fun < func_val:
-#                func_val = res.fun
-#                res_warmup = res
-#        x0=np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
-#        res=minimize(self.cost_func, x0, method = method_opt, args = (X, self.alpha_mat(synapse), Y), 
-#                     options={'maxfun': 15000, 'maxiter': 15000})
-        res=minimize(self.cost_func, x0, method = method_opt, args = (X, self.alpha_mat(synapse), Y), 
-                     jac=self.cost_func_jac, options={'maxfun': 15000, 'maxiter': 15000})
-#        stp_param = [ 5*self.sigmoid(x[-6]), 5*self.sigmoid(x[-5]), self.sigmoid(x[-4]), self.sigmoid(x[-3]), np.exp(x[-2]) ]
-        return res
-
-        
-    def stp_model(self,theta):
-        """
-        cython implementation of the Tsodyks and Markram model of a dynamical synapse
-        """
-        isi = self.isi_tlist(self.st1)
-        psp = cython_loop.stp_model_cython(isi, np.array(theta))
-        return psp
-    
     def estimate_synapse(self, num_basis=5, num_rept=100, rnd_scale=1, plot_flag=0):
         """
         estimate synapse from cross-correlogram accounting for slow fluctuations in xcorr
@@ -248,6 +81,182 @@ class SpikeAnalysis:
             plt.show()
         return res, synapse, alpha, slow_xcorr, xcorr1[0], t_xcorr
 
+    @staticmethod
+    def isi_tlist(spk):
+        isi_pre = np.diff(spk.ravel())
+        isi_pre = np.append(np.max(isi_pre), isi_pre)
+        return isi_pre
+
+    def time_post_pre(self):
+        return [self.st2[bisect.bisect_left(self.st2, i) - 1] - i for i in self.st1]
+
+    def time_pre_cpl(self):
+        len_st2 = len(self.st2)
+        return np.array([self.st2[bisect.bisect_left(self.st2, i)] - i if bisect.bisect_left(self.st2, i) < len_st2 else None for i in self.st1])
+
+    def y_mat(self, t_pre_cpl, num_bins=100):
+        """
+        Creates a matrix each row representing a presynaptic spike
+        0/1 values in each column shows presence of postsynaptic spike
+
+        Input:
+            t_pre_cpl : time difference between each presynaptic spike and following postsynaptic spike
+            num_bins : number of bins for Y matrix // should be the same as columns in X
+
+        """
+        Ycpl_idx = np.array([np.digitize(i, np.linspace(0, self.tb, num_bins + 1)) for i in t_pre_cpl])
+        idx = np.hstack((np.array([list(range(0, len(self.st1)))]).T, np.reshape(Ycpl_idx,(-1,1))))
+        Ycpl = np.zeros([len(self.st1), num_bins + 1])
+        for i in range(len(self.st1)):
+            Ycpl[idx[i, 0], idx[i, 1] - 1] = 1 #why do i have -1 here?
+        return Ycpl[: , :-1]
+
+    
+    @staticmethod
+    def mask_Yy(Yy):
+        mYy = Yy.copy()
+        for i in range(Yy.shape[0]):
+            for j in range(Yy.shape[1]):
+                if Yy[i,j]==1:
+                    break
+                else:
+                    mYy[i,j]=1
+        return mYy
+
+    def make_X(self, syn_param, max_history_filter=.01, num_history_splines=10, len_fr_bas=200, plot_h_flag=0):
+        t_post_pre = self.time_post_pre()
+        x = np.negative(t_post_pre)
+        x[x < 0] = np.median(x[x > 0]) # just a check but be careful 
+        knots_history = np.linspace(min(x) + .0001, max_history_filter - .0001, num_history_splines)
+        X_h = dmatrix("bs(x, degree=3, knots = knots_history, include_intercept=False) - 1", {"x": x})
+        if plot_h_flag == 1:
+            for i in range(X_h.shape[1] - 4):
+                plt.scatter(x, X_h[:, i])
+            plt.xlabel('pre spike time - previous postsynaptic spike')
+            plt.xlim([0, max_history_filter])
+            plt.show()
+        X_h_truncated = X_h[: , : num_history_splines - 4] # don't need them
+        # baseline firing rate covariates
+        knots_fr = np.linspace(np.min(self.st1) + 1, np.max(self.st1), int((np.floor(max(self.st1))) / len_fr_bas))
+        X_fr = dmatrix("bs(x, degree=3, knots = knots_fr, include_intercept=False) - 1", {"x": self.st1})
+        X_fr_truncated = X_fr[: , : -1]
+        
+#        Xvar = np.hstack((np.array(X_fr_truncated)))
+#        Xvar = np.hstack((np.array(X_fr_truncated), np.array(X_h_truncated)))
+        Xvar = np.hstack((np.ones([len(self.st1), 1]), np.array(X_fr_truncated), np.array(X_h_truncated)))
+#        X_notNone = Xvar[[i for i in range(len(Xvar[:, -1])) if Xvar[:, -1][i] is not None], :].astype('float')
+        return Xvar
+
+    def transf_theta(self,theta):
+        """
+        transforms the parmaters of the stp model so we don;t have to use 
+        constrained optimization
+        """
+#        theta_ = [5 * self.sigmoid(theta[-5]), 
+#              5 * self.sigmoid(theta[-4]), 
+#              self.sigmoid(theta[-3]), 
+#              self.sigmoid(theta[-2]),
+#              .2 * self.sigmoid(theta[-1]) ]
+        theta_ = [np.exp(theta[-5]), 
+              np.exp(theta[-4]), 
+              self.sigmoid(theta[-3]), 
+              self.sigmoid(theta[-2]),
+              np.exp(theta[-1]) ]
+        return theta_
+    
+    def alpha_mat(self,synapse):
+        return np.matlib.repmat(synapse[100:], self.st1.shape[0], 1)
+    
+    def lambda_fun(self, beta, X, psp_scaled, synapse):
+#        Xmat = np.matlib.repmat(np.array([np.dot(X, beta)]).T, 1, 100)
+        dyn_stp_mat = (np.array([psp_scaled])*np.array([synapse[100:]]).T).T
+        return self.sigmoid(np.array([np.dot(X, beta)]).T + dyn_stp_mat)
+
+    @staticmethod
+    def log_likelihood(x, lam_mat, Y, mY):
+        lam_mat = np.multiply(lam_mat,mY)
+        logl0 = np.zeros(lam_mat.shape)
+        logl0[lam_mat==0]=1
+        logl1 = np.zeros(lam_mat.shape)
+        logl1[lam_mat==1]=1
+#        if np.random.randn(1)>.1:
+#            print(-np.sum(np.multiply(np.log(lam_mat+logl0), Y) + np.multiply(np.log(1 - lam_mat+logl1), 1 - Y)) + np.sum(x[-6:-1]**2))
+        return -np.sum(np.multiply(np.log(lam_mat+logl0), Y) + np.multiply(np.log(1 - lam_mat+logl1), 1 - Y)) + np.sum(x[-6:-1]**2)
+
+
+    def cost_func_and_jac(self, x, X, synapse, Y, mY, jac_flag=False):
+        theta_ = self.transf_theta(x[-6:-1])
+        psp = self.stp_model(theta_)
+        lam_mat=self.lambda_fun(x[:-6], X, np.exp(x[-1]) * psp, synapse)
+        jac_vec = np.array([None for i in range(x.shape[0])])
+        eps=1e-7
+        beta=x[:-6]
+        if jac_flag is True:
+            jac_vec=np.zeros(x.shape)
+            jac_vec[:len(beta)] = np.sum(np.dot(X.T, lam_mat-Y), axis=1)
+            for i in range(len(beta),len(jac_vec)):
+                dx=np.zeros(x.shape)
+                dx[i]=eps
+                jac_vec[i]=(self.cost_func_and_jac(x + dx, X, synapse, Y, mY, False)[0] - self.cost_func_and_jac(x - dx, X, synapse, Y, mY, False)[0]) / 2 / eps
+
+#            print('dyn syn: ', np.exp(x[1])*psp[:10])
+#            print('bseline: ', np.array([np.dot(X[:10,:], beta)]))
+##            plt.scatter(self.st1, np.exp(x[-1])*psp)
+##            plt.show()
+#            
+#            print('jac: ',jac_vec)
+#            print('stp params: ', np.around(self.transf_theta(x[-6:-1]),2))
+            mean_eff, isi_vec = self.spike_trans_prob_est(x, X, synapse, N=100, plot_flag=1)
+            t_xcorr = np.linspace(self.ta, self.tb, self.nbins)
+            t_syn_interval = t_xcorr[synapse>.1*np.max(synapse)]
+            spk_prob, t_split_isi = self.spike_transmission_prob(np.min(t_syn_interval), np.max(t_syn_interval), num_isilog=50, plot_flag=1)
+            plt.show()
+
+        return self.log_likelihood(x, lam_mat, Y, mY), jac_vec
+
+    def optim_func(self, X, synapse, Y, rnd_scale):
+        """
+        optimizing the cost function
+            - initialization with standard glm % makes it more unstable ...
+            - warm start from random restart
+        """
+        method_opt = "BFGS"
+        mY = self.mask_Yy(Y)
+#        alph_mat = self.alpha_mat(synapse)
+        t0 = time.time()
+        # initialization with the help of GLM
+        bern_model = GLM(family=Bernoulli())
+        bern_model.fit(X, np.sum(Y,axis=1))
+
+        # warm start 
+        func_val = float('inf')
+        for i in range(3):
+            x0=np.random.randn(np.shape(X)[1] + 6, 1)*rnd_scale
+            x0[-6:-1] = x0[-6:-1] + np.array([-1, -1, 0, 0, -3], ndmin=2).T
+            x0[:-6] = x0[:-6]+np.reshape(bern_model.coef_,(-1,1))
+            res=minimize(self.cost_func_and_jac, x0, method = method_opt, args = (X, synapse, Y, mY, True), 
+                     jac=True, options={'maxfun': 15, 'maxiter': 2})
+
+            if res.fun < func_val:
+                func_val = res.fun
+                res_warmup = res
+        print('finished initialization and warm-start in:', time.time()-t0)
+        res=minimize(self.cost_func_and_jac, res_warmup.x, method = method_opt, args = (X, synapse, Y, mY, True), 
+                     jac=True, options={'maxfun': 1500, 'maxiter': 1500})
+        return res
+
+        
+    def stp_model(self,theta):
+        """
+        cython implementation of the Tsodyks and Markram model of a dynamical synapse
+        """
+        isi = self.isi_tlist(self.st1)
+        psp = cython_loop.stp_model_cython(isi, np.array(theta))
+        psp[0]=np.median(psp)
+        psp = psp/np.mean(psp)
+        return psp
+    
+
     def spike_transmission_prob(self, min_syn=.0005, max_syn=.0035, num_isilog=50, plot_flag=0):
         """
         plot the spike tranmission probability from pre- and postsynaptic spikes
@@ -274,9 +283,9 @@ class SpikeAnalysis:
         spike tranmission probability from lambda with estimated parameters
         """
         psp = self.stp_model(self.transf_theta(x[-6:-1]))
-        lam = self.lambda_fun(x[:-6], X, x[-1]*psp, self.alpha_mat(synapse))
+        lam = self.lambda_fun(x[:-6], X, np.exp(x[-1])*psp, self.alpha_mat(synapse))
         idx_syn = [i-100 for i in range(len(synapse)) if synapse[i] > self.thr * np.max(synapse)]
-        eff_n = np.mean(lam[:, idx_syn], axis=1)
+        eff_n = np.sum(lam[:, idx_syn], axis=1)
         isilog10 = np.log10(self.isi_tlist(self.st1))
         isi_vec = np.linspace(min(isilog10)-.0001,max(isilog10)+.0001,N)
         idx_isi = np.array([int(np.digitize(i,isi_vec)) for i in isilog10])
@@ -285,8 +294,6 @@ class SpikeAnalysis:
             mean_eff[i] = np.mean(eff_n[idx_isi==i])
         if plot_flag==1:
             plt.scatter(isi_vec,mean_eff)
-#            plt.ylim([0,1])
-#            plt.show()
         return mean_eff, isi_vec
 
     @staticmethod
