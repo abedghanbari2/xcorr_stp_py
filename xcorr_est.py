@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import io
 import scipy.signal as sps
-import scipy.special as spc
+#import scipy.special as spc
 
 # import scipy.interpolate as spi
 from scipy.optimize import minimize
@@ -9,9 +9,9 @@ import time
 from patsy import dmatrix
 import bisect
 import matplotlib.pyplot as plt
-from glm.glm import GLM
-from glm.families import Bernoulli
+import statsmodels.api as sm
 import cython_loop
+
 
 class SpikeAnalysis:
 
@@ -31,17 +31,15 @@ class SpikeAnalysis:
 
     @staticmethod
     def sigmoid(x):
-#        return 1 / (1 + np.exp(-x))
-        return spc.expit(x)
-#        return (1.0+np.tanh(x/2.0))/2.0
-    
+        return 1 / (1 + np.exp(-x))
+
     @staticmethod
     def logit(x):
         return np.log(x / (1 - x))
 
     def syn(self, xx):
-        t_delay = self.tb * self.sigmoid(xx[0])
-        tau = .01 * self.sigmoid(xx[1])
+        t_delay = self.tb * SpikeAnalysis.sigmoid(xx[0])
+        tau = .01 * SpikeAnalysis.sigmoid(xx[1])
         return lambda t: xx[2] * max(0, t - t_delay) / tau * np.exp(1 - max(0, t - t_delay) / tau)
 
     def func_min_xcorr(self, x, bas, y):
@@ -75,9 +73,9 @@ class SpikeAnalysis:
         synapse = [alpha(i) for i in t_xcorr]  # the synapse
         slow_xcorr = res.x[:-3].dot(bas)
         if plot_flag == 1:
-            plt.bar(t_xcorr, xcorr1[0], width=t_xcorr[1]-t_xcorr[0])
-            plt.plot(t_xcorr, np.exp(slow_xcorr),color='r',linewidth=3) # the smooth CommInp
-            plt.plot(t_xcorr, np.exp(slow_xcorr+synapse),color='k',linewidth=3)
+            plt.bar(t_xcorr, xcorr1[0], width=t_xcorr[1] - t_xcorr[0])
+            plt.plot(t_xcorr, np.exp(slow_xcorr), color='r', linewidth=3)  # the smooth CommInp
+            plt.plot(t_xcorr, np.exp(slow_xcorr + synapse), color='k', linewidth=3)
             plt.show()
         return res, synapse, alpha, slow_xcorr, xcorr1[0], t_xcorr
 
@@ -105,28 +103,27 @@ class SpikeAnalysis:
 
         """
         Ycpl_idx = np.array([np.digitize(i, np.linspace(0, self.tb, num_bins + 1)) for i in t_pre_cpl])
-        idx = np.hstack((np.array([list(range(0, len(self.st1)))]).T, np.reshape(Ycpl_idx,(-1,1))))
+        idx = np.hstack((np.array([list(range(0, len(self.st1)))]).T, np.reshape(Ycpl_idx, (-1, 1))))
         Ycpl = np.zeros([len(self.st1), num_bins + 1])
         for i in range(len(self.st1)):
-            Ycpl[idx[i, 0], idx[i, 1] - 1] = 1 #why do i have -1 here?
-        return Ycpl[: , :-1]
+            Ycpl[idx[i, 0], idx[i, 1] - 1] = 1  # why do i have -1 here?
+        return Ycpl[:, :-1]
 
-    
     @staticmethod
     def mask_Yy(Yy):
         mYy = Yy.copy()
         for i in range(Yy.shape[0]):
             for j in range(Yy.shape[1]):
-                if Yy[i,j]==1:
+                if Yy[i, j] == 1:
                     break
                 else:
-                    mYy[i,j]=1
+                    mYy[i, j] = 1
         return mYy
 
     def make_X(self, syn_param, max_history_filter=.01, num_history_splines=10, len_fr_bas=200, plot_h_flag=0):
         t_post_pre = self.time_post_pre()
         x = np.negative(t_post_pre)
-        x[x < 0] = np.median(x[x > 0]) # just a check but be careful 
+        x[x < 0] = np.median(x[x > 0])  # just a check but be careful
         knots_history = np.linspace(min(x) + .0001, max_history_filter - .0001, num_history_splines)
         X_h = dmatrix("bs(x, degree=3, knots = knots_history, include_intercept=False) - 1", {"x": x})
         if plot_h_flag == 1:
@@ -135,82 +132,81 @@ class SpikeAnalysis:
             plt.xlabel('pre spike time - previous postsynaptic spike')
             plt.xlim([0, max_history_filter])
             plt.show()
-        X_h_truncated = X_h[: , : num_history_splines - 4] # don't need them
+        X_h_truncated = X_h[:, : num_history_splines - 4]  # don't need them
         # baseline firing rate covariates
         knots_fr = np.linspace(np.min(self.st1) + 1, np.max(self.st1), int((np.floor(max(self.st1))) / len_fr_bas))
         X_fr = dmatrix("bs(x, degree=3, knots = knots_fr, include_intercept=False) - 1", {"x": self.st1})
-        X_fr_truncated = X_fr[: , : -1]
-        
+        X_fr_truncated = X_fr[:, : -1]
+
 #        Xvar = np.hstack((np.array(X_fr_truncated)))
-#        Xvar = np.hstack((np.array(X_fr_truncated), np.array(X_h_truncated)))
-        Xvar = np.hstack((np.ones([len(self.st1), 1]), np.array(X_fr_truncated), np.array(X_h_truncated)))
+        Xvar = np.hstack((np.array(X_fr_truncated), np.array(X_h_truncated)))
+#        Xvar = np.hstack((np.ones([len(self.st1), 1]), np.array(X_fr_truncated), np.array(X_h_truncated)))
 #        X_notNone = Xvar[[i for i in range(len(Xvar[:, -1])) if Xvar[:, -1][i] is not None], :].astype('float')
         return Xvar
 
-    def transf_theta(self,theta):
+    @staticmethod
+    def transf_theta(theta):
         """
-        transforms the parmaters of the stp model so we don;t have to use 
+        transforms the parmaters of the stp model so we don;t have to use
         constrained optimization
         """
-#        theta_ = [5 * self.sigmoid(theta[-5]), 
-#              5 * self.sigmoid(theta[-4]), 
-#              self.sigmoid(theta[-3]), 
-#              self.sigmoid(theta[-2]),
-#              .2 * self.sigmoid(theta[-1]) ]
-        theta_ = [np.exp(theta[-5]), 
-              np.exp(theta[-4]), 
-              self.sigmoid(theta[-3]), 
-              self.sigmoid(theta[-2]),
-              np.exp(theta[-1]) ]
+#        theta_ = [5 * SpikeAnalysis.sigmoid(theta[-5]),
+#              5 * SpikeAnalysis.sigmoid(theta[-4]),
+#              SpikeAnalysis.sigmoid(theta[-3]),
+#              SpikeAnalysis.sigmoid(theta[-2]),
+#              .2 * SpikeAnalysis.sigmoid(theta[-1]) ]
+        theta_ = [np.exp(theta[-5]),
+                  np.exp(theta[-4]),
+                  SpikeAnalysis.sigmoid(theta[-3]),
+                  SpikeAnalysis.sigmoid(theta[-2]),
+                  np.exp(theta[-1])]
         return theta_
-    
-    def alpha_mat(self,synapse):
+
+    def alpha_mat(self, synapse):
         return np.matlib.repmat(synapse[100:], self.st1.shape[0], 1)
-    
+
     def lambda_fun(self, beta, X, psp_scaled, synapse):
-#        Xmat = np.matlib.repmat(np.array([np.dot(X, beta)]).T, 1, 100)
-        dyn_stp_mat = (np.array([psp_scaled])*np.array([synapse[100:]]).T).T
-        return self.sigmoid(np.array([np.dot(X, beta)]).T + dyn_stp_mat)
+        #        Xmat = np.matlib.repmat(np.array([np.dot(X, beta)]).T, 1, 100)
+        dyn_stp_mat = (np.array([psp_scaled]) * np.array([synapse[100:]]).T).T
+        return SpikeAnalysis.sigmoid(np.array([np.dot(X, beta)]).T + dyn_stp_mat)
 
     @staticmethod
-    def log_likelihood(x, lam_mat, Y, mY):
-        lam_mat = np.multiply(lam_mat,mY)
+    def log_likelihood(x, lam_mat0, Y, mY):
+        lam_mat = np.multiply(lam_mat0, mY)
         logl0 = np.zeros(lam_mat.shape)
-        logl0[lam_mat==0]=1
+        logl0[lam_mat == 0] = 1
         logl1 = np.zeros(lam_mat.shape)
-        logl1[lam_mat==1]=1
+        logl1[lam_mat == 1] = 1
 #        if np.random.randn(1)>.1:
 #            print(-np.sum(np.multiply(np.log(lam_mat+logl0), Y) + np.multiply(np.log(1 - lam_mat+logl1), 1 - Y)) + np.sum(x[-6:-1]**2))
-        return -np.sum(np.multiply(np.log(lam_mat+logl0), Y) + np.multiply(np.log(1 - lam_mat+logl1), 1 - Y)) + np.sum(x[-6:-1]**2)
-
+        return -np.sum(np.multiply(np.log(lam_mat + logl0), Y) + np.multiply(np.log(1 - lam_mat + logl1), 1 - Y)) + .5 * np.sum(x[-6:-1]**2)
 
     def cost_func_and_jac(self, x, X, synapse, Y, mY, jac_flag=False):
-        theta_ = self.transf_theta(x[-6:-1])
+        theta_ = SpikeAnalysis.transf_theta(x[-6:-1])
         psp = self.stp_model(theta_)
-        lam_mat=self.lambda_fun(x[:-6], X, np.exp(x[-1]) * psp, synapse)
+        lam_mat = self.lambda_fun(x[:-6], X, np.exp(x[-1]) * psp, synapse)
         jac_vec = np.array([None for i in range(x.shape[0])])
-        eps=1e-7
-        beta=x[:-6]
+#        eps = .000001
+#        beta=x[:-6]
         if jac_flag is True:
-            jac_vec=np.zeros(x.shape)
-            jac_vec[:len(beta)] = np.sum(np.dot(X.T, lam_mat-Y), axis=1)
-            for i in range(len(beta),len(jac_vec)):
-                dx=np.zeros(x.shape)
-                dx[i]=eps
-                jac_vec[i]=(self.cost_func_and_jac(x + dx, X, synapse, Y, mY, False)[0] - self.cost_func_and_jac(x - dx, X, synapse, Y, mY, False)[0]) / 2 / eps
-
-#            print('dyn syn: ', np.exp(x[1])*psp[:10])
-#            print('bseline: ', np.array([np.dot(X[:10,:], beta)]))
-##            plt.scatter(self.st1, np.exp(x[-1])*psp)
-##            plt.show()
-#            
+            jac_vec = np.zeros(x.shape)
+            jac_vec[0:(len(x) - 6)] = np.sum(np.dot(X.T, lam_mat - Y), axis=1)
 #            print('jac: ',jac_vec)
-#            print('stp params: ', np.around(self.transf_theta(x[-6:-1]),2))
-            mean_eff, isi_vec = self.spike_trans_prob_est(x, X, synapse, N=100, plot_flag=1)
-            t_xcorr = np.linspace(self.ta, self.tb, self.nbins)
-            t_syn_interval = t_xcorr[synapse>.1*np.max(synapse)]
-            spk_prob, t_split_isi = self.spike_transmission_prob(np.min(t_syn_interval), np.max(t_syn_interval), num_isilog=50, plot_flag=1)
-            plt.show()
+            for i in range(1, len(jac_vec)):
+                if i >= len(x) - 6:
+                    dx = np.zeros(x.shape)
+                    eps = x[i]/10*np.random.rand(1)
+                    dx[i] = eps
+                    jac_vec[i] = (self.cost_func_and_jac(x + dx, X, synapse, Y, mY, False)[0] - self.cost_func_and_jac(x - dx, X, synapse, Y, mY, False)[0]) / 2 / eps
+
+            print('jac estimated: ', np.around(jac_vec[-6:],2))
+            print('stp params: ', np.around(SpikeAnalysis.transf_theta(x[-6:-1]), 2))
+#            print('fun value: ',self.log_likelihood(x, lam_mat, Y, mY))
+#            self.spike_trans_prob_est(x, X, synapse, N=100, plot_flag=1)
+#            t_xcorr = np.linspace(self.ta, self.tb, self.nbins)
+#            t_syn_interval = t_xcorr[synapse>.1*np.max(synapse)]
+#            self.spike_transmission_prob(np.min(t_syn_interval), np.max(t_syn_interval), num_isilog=50, plot_flag=1)
+#            plt.show()
 
         return self.log_likelihood(x, lam_mat, Y, mY), jac_vec
 
@@ -220,48 +216,47 @@ class SpikeAnalysis:
             - initialization with standard glm % makes it more unstable ...
             - warm start from random restart
         """
-        method_opt = "BFGS"
+        method_opt = "bfgs"
         mY = self.mask_Yy(Y)
 #        alph_mat = self.alpha_mat(synapse)
         t0 = time.time()
         # initialization with the help of GLM
-        bern_model = GLM(family=Bernoulli())
-        bern_model.fit(X, np.sum(Y,axis=1))
+        binomial_model = sm.GLM(np.sum(Y, axis=1), X, family=sm.families.Binomial())
+        binomial_results = binomial_model.fit()
 
-        # warm start 
-        func_val = float('inf')
-        for i in range(3):
-            x0=np.random.randn(np.shape(X)[1] + 6, 1)*rnd_scale
+        # warm start
+        func_val = 1e12
+        for i in range(5):
+            x0 = np.random.randn(np.shape(X)[1] + 6, 1) * rnd_scale
             x0[-6:-1] = x0[-6:-1] + np.array([-1, -1, 0, 0, -3], ndmin=2).T
-            x0[:-6] = x0[:-6]+np.reshape(bern_model.coef_,(-1,1))
-            res=minimize(self.cost_func_and_jac, x0, method = method_opt, args = (X, synapse, Y, mY, True), 
-                     jac=True, options={'maxfun': 15, 'maxiter': 2})
+            x0[:-6] = x0[:-6] + np.reshape(binomial_results.params, (-1, 1))
+            res = minimize(self.cost_func_and_jac, x0, method=method_opt, args=(X, synapse, Y, mY, True),
+                           jac=True, options={'maxfun': 15, 'maxiter': 5})
 
             if res.fun < func_val:
                 func_val = res.fun
                 res_warmup = res
-        print('finished initialization and warm-start in:', time.time()-t0)
-        res=minimize(self.cost_func_and_jac, res_warmup.x, method = method_opt, args = (X, synapse, Y, mY, True), 
-                     jac=True, options={'maxfun': 1500, 'maxiter': 1500})
+
+        print('finished initialization and warm-start in:', time.time() - t0)
+        res = minimize(self.cost_func_and_jac, res_warmup.x, method=method_opt, args=(X, synapse, Y, mY, True),
+                       jac=True, options={'maxfun': 1500, 'maxiter': 1500})
         return res
 
-        
-    def stp_model(self,theta):
+    def stp_model(self, theta):
         """
         cython implementation of the Tsodyks and Markram model of a dynamical synapse
         """
-        isi = self.isi_tlist(self.st1)
+        isi = SpikeAnalysis.isi_tlist(self.st1)
         psp = cython_loop.stp_model_cython(isi, np.array(theta))
-        psp[0]=np.median(psp)
-        psp = psp/np.mean(psp)
+        psp[0] = np.median(psp)
+        psp = psp / np.mean(psp)
         return psp
-    
 
     def spike_transmission_prob(self, min_syn=.0005, max_syn=.0035, num_isilog=50, plot_flag=0):
         """
         plot the spike tranmission probability from pre- and postsynaptic spikes
         """
-        isi_pre = self.isi_tlist(self.st1)
+        isi_pre = SpikeAnalysis.isi_tlist(self.st1)
         # a log-spaced vector [lowest ISI, highest ISI] presynaptic ISI
         logisi_vec = np.logspace(np.log10(np.min(isi_pre)), np.log10(np.max(isi_pre)), base=10.0, num=num_isilog)
 #         for each presynaptic spike what was the ISI before and build a post_spk_presence (0/1)
@@ -273,28 +268,46 @@ class SpikeAnalysis:
         for j in range(len(logisi_vec)):
             spk_prob[j] = np.mean(post_spk_presence[isi_split_num == j])
             t_split_isi[j] = np.mean(isi_pre[isi_split_num == j])
-        if plot_flag==1:
+        if plot_flag == 1:
             plt.scatter(np.log10(t_split_isi), spk_prob)
 #            plt.show()
         return spk_prob, t_split_isi
+    
+    @staticmethod
+    def cumulitive_lam(lam_mat, idx):
+        """
+        cumulitive probability of firing from binned lambdas
+        """
+#        print(lam_mat.shape)
+        lam_cum = np.zeros([lam_mat.shape[0], 1])
+        lam_chunk = lam_mat[:, idx]
+        anti_lam = 1 - lam_chunk
+        for ispk in range(lam_chunk.shape[0]):
+            lam_cum_each = lam_chunk[ispk, 0]
+            for i in range(1, lam_chunk.shape[1]):
+                lam_cum_each += np.prod(anti_lam[ispk, :i]) * lam_chunk[ispk, i]
+            lam_cum[ispk] = lam_cum_each
+        return lam_cum
 
     def spike_trans_prob_est(self, x, X, synapse, N=40, plot_flag=0):
         """
         spike tranmission probability from lambda with estimated parameters
         """
-        psp = self.stp_model(self.transf_theta(x[-6:-1]))
-        lam = self.lambda_fun(x[:-6], X, np.exp(x[-1])*psp, self.alpha_mat(synapse))
-        idx_syn = [i-100 for i in range(len(synapse)) if synapse[i] > self.thr * np.max(synapse)]
+        psp = self.stp_model(SpikeAnalysis.transf_theta(x[-6:-1]))
+        lam = self.lambda_fun(x[:-6], X, np.exp(x[-1]) * psp, synapse)
+        idx_syn = [i - 100 for i in range(len(synapse)) if synapse[i] > self.thr * np.max(synapse)]
         eff_n = np.sum(lam[:, idx_syn], axis=1)
-        isilog10 = np.log10(self.isi_tlist(self.st1))
-        isi_vec = np.linspace(min(isilog10)-.0001,max(isilog10)+.0001,N)
-        idx_isi = np.array([int(np.digitize(i,isi_vec)) for i in isilog10])
-        mean_eff = np.zeros([N,1])
+#        eff_n = SpikeAnalysis.cumulitive_lam(lam, idx_syn)
+        isilog10 = np.log10(SpikeAnalysis.isi_tlist(self.st1))
+        isi_vec = np.linspace(min(isilog10) - .0001, max(isilog10) + .0001, N)
+        idx_isi = np.array([int(np.digitize(i, isi_vec)) for i in isilog10])
+        mean_eff = np.zeros([N, 1])
         for i in range(N):
-            mean_eff[i] = np.mean(eff_n[idx_isi==i])
-        if plot_flag==1:
-            plt.scatter(isi_vec,mean_eff)
-        return mean_eff, isi_vec
+            mean_eff[i] = np.mean(eff_n[idx_isi == i])
+        if plot_flag == 1:
+            plt.scatter(isi_vec, mean_eff)
+        return mean_eff, isi_vec, eff_n
+
 
     @staticmethod
     def load_data(i):
@@ -308,7 +321,9 @@ class SpikeAnalysis:
         elif i == 2:
 
             # AVCN
-            mat = io.loadmat('/Volumes/GoogleDrive/My Drive/stp in vivo/data/avcn/Tuning_G1003C82R14.mat')
+#            mat = io.loadmat('/Volumes/GoogleDrive/My Drive/stp in vivo/data/avcn/Tuning_G1003C82R14.mat')
+            mat = io.loadmat('C:\\Users\\abg14006\\Google Drive\\stp in vivo\\data\\data_remote\\Tuning_G1003C82R14.mat')
+            
             pre = mat['Tuning']['Raw'][0][0]['Continuous'][0][0]['STsEPSP'][0][0] / mat['Tuning']['SamplingRate'][0][0]
             temp_a = mat['Tuning']['Raw'][0][0]['Continuous'][0][0]['STs'][0][0]
             temp_b = mat['Tuning']['Raw'][0][0]['Continuous'][0][0]['isAP'][0][0]
@@ -317,7 +332,9 @@ class SpikeAnalysis:
         elif i == 3:
 
             # VB-Barrel
-            mat = io.loadmat('/Volumes/GoogleDrive/My Drive/stp in vivo/data/data_remote/Mar23c1,2,4_Herc_spikes.mat')
+#            mat = io.loadmat('/Volumes/GoogleDrive/My Drive/stp in vivo/data/data_remote/Mar23c1,2,4_Herc_spikes.mat')
+            mat = io.loadmat('C:\\Users\\abg14006\\Google Drive\\stp in vivo\\data\\data_remote\\Mar23c1,2,4_Herc_spikes.mat')
+            
             pre = mat['Tlist'][0][0] + .0001 * np.random.random_sample(mat['Tlist'][0][0].shape)
             post = mat['Tlist'][0][1] + .0001 * np.random.random_sample(mat['Tlist'][0][1].shape)
             t_start = np.floor(np.min(np.append(pre, post)))
@@ -325,6 +342,7 @@ class SpikeAnalysis:
             post = post - t_start
 
         return pre, post
+
 
     #%% main code
 if __name__ == "__main__":
