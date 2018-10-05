@@ -23,23 +23,23 @@ X = xcorr_class.make_X(res.x[-3:], max_history_filter=.01, num_history_splines=2
 res = xcorr_class.optim_func(X, synapse, Y, 4)
 
 # plot the estimated efficacy curves
-mean_eff, isi_vec = xcorr_class.spike_trans_prob_est(res.x, X, synapse, N=100, plot_flag=1)
+eff_n = xcorr_class.spike_trans_prob_est(res.x, X, synapse, N=100, plot_flag=1)[2]
 
 t_syn_interval = t_xcorr[synapse>.1*np.max(synapse)]
-spk_prob, t_split_isi = xcorr_class.spike_transmission_prob(np.min(t_syn_interval), np.max(t_syn_interval), num_isilog=50, plot_flag=1)
-
+xcorr_class.spike_transmission_prob(np.min(t_syn_interval), np.max(t_syn_interval), num_isilog=50, plot_flag=1)
+plt.show()
+#%%
+plt.plot(pre,eff_n*max(pre)/1000*500)
+plt.hist(pre,bins=100)
+plt.show()
 #%% GLM
-from glm.glm import GLM
-from glm.families import Bernoulli
-
-bern_model = GLM(family=Bernoulli())
-bern_model.fit(X, np.sum(Y,axis=1))
-bern_model.coef_
-
+import statsmodels.api as sm
+binomial_model = sm.GLM(np.sum(Y,axis=1), X, family=sm.families.Binomial())
+binomial_results = binomial_model.fit()
 x_glm = np.random.randn(np.shape(X)[1] + 6)
-x_glm[:-6] = bern_model.coef_
+x_glm[:-6] = binomial_results.params
 # plot the estimated efficacy curves
-mean_eff, isi_vec = xcorr_class.spike_trans_prob_est(x_glm, X, synapse, N=100, plot_flag=1)
+mean_eff, isi_vec, eff_n = xcorr_class.spike_trans_prob_est(x_glm, X, synapse, N=100, plot_flag=1)
 
 t_syn_interval = t_xcorr[synapse>.1*np.max(synapse)]
 spk_prob, t_split_isi = xcorr_class.spike_transmission_prob(np.min(t_syn_interval), np.max(t_syn_interval), num_isilog=50, plot_flag=1)
