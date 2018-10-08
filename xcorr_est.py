@@ -164,11 +164,13 @@ class SpikeAnalysis:
         return np.matlib.repmat(synapse[100:], self.st1.shape[0], 1)
 
     def lambda_fun(self, beta, X, psp_scaled, synapse, mY):
-#        dyn_stp_mat = (np.array([psp_scaled]) * np.array([synapse[100:]]).T).T
-#        lam = np.multiply(SpikeAnalysis.sigmoid(np.array([np.dot(X, beta)]).T + dyn_stp_mat), mY)
+        dyn_stp_mat = (np.array([psp_scaled]) * np.array([synapse[100:]]).T).T
+        lam = np.multiply(SpikeAnalysis.sigmoid(np.array([np.dot(X, beta)]).T + dyn_stp_mat), mY)
 
         # cythonized x2 speed
         lam = np.array(lam_cython.lambda_fun_cython(beta, X, psp_scaled, np.array(synapse), mY))
+        if np.array([lam==None]).any():
+            raise ValueError("lam has nan values ... ")
         return lam
 
     @staticmethod
