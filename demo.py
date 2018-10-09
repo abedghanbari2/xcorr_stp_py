@@ -10,9 +10,9 @@ tb=0.005
 
 # get the histogram
 pre, post = SpikeAnalysis.load_data(3)
-pre=pre[:8000,0]
-post = post[post<np.max(pre)]
-xcorr_class = SpikeAnalysis(pre,post,ta,tb,nbins)
+pre=pre[:8000, 0]
+post = post[post < np.max(pre)]
+xcorr_class = SpikeAnalysis(pre, post, ta, tb, nbins)
 t_pre_cpl = xcorr_class.time_pre_cpl()
 Y = xcorr_class.y_mat(t_pre_cpl, num_bins=100)
 res, synapse, alpha, slow_xcorr, xcorr, t_xcorr = xcorr_class.estimate_synapse(num_basis=5, num_rept=100, rnd_scale=1, plot_flag=1)

@@ -10,6 +10,7 @@ import statsmodels.api as sm
 import cython_loop
 import lam_cython
 import math
+import pdb
 
 class SpikeAnalysis:
 
@@ -20,6 +21,8 @@ class SpikeAnalysis:
         self.tb = tb
         self.nbins = nbins
         self.thr = .1
+        self.isi = SpikeAnalysis.isi_tlist(self.st1)
+        self.reset = self.reset_vec()
 
     def cross_correlogram(self):
         all = []
@@ -82,6 +85,16 @@ class SpikeAnalysis:
         isi_pre = np.diff(spk.ravel())
         isi_pre = np.append(np.max(isi_pre), isi_pre)
         return isi_pre
+
+    def reset_vec(self):
+        print(1)
+        reset = np.zeros(self.st1.shape)
+        for i in range(1,len(self.st1)):
+            if self.st2[bisect.bisect_left(self.st2, self.st1[i]) - 1] > self.st1[i-1]:
+                reset[i] = 0
+            else:
+                reset[i] = 1  
+        return reset
 
     def time_post_pre(self):
         return [self.st2[bisect.bisect_left(self.st2, i) - 1] - i for i in self.st1]
@@ -251,8 +264,9 @@ class SpikeAnalysis:
         """
         cython implementation of the Tsodyks and Markram model of a dynamical synapse
         """
-        isi = SpikeAnalysis.isi_tlist(self.st1)
-        psp = cython_loop.stp_model_cython(isi, np.array(theta))
+#        isi = SpikeAnalysis.isi_tlist(self.st1)
+        psp = cython_loop.stp_model_cython(self.isi, self.reset, np.array(theta))
+#        pdb.set_trace()
         psp[0] = np.median(psp)
         psp = psp / np.mean(psp)
         if math.isnan(np.sum(psp)):
