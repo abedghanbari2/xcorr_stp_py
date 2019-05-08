@@ -1,0 +1,3 @@
+# xcorr_stp_py
+estimating short-term synaptic plasticity using spikes - in vivo
+not finished --- use the matlab version ...
